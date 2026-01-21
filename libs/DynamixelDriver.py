@@ -210,7 +210,7 @@ class PConrtol:
             print("Fail to initialize")
             return
         self.goalPosition = 0
-        self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])  # モード切り替え
+        # self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])  # モード切り替え（ここでGoalレジスタの値が書き換わる）
         self.servo.setTorque(True)
         return
     #
