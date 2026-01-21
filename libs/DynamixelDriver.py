@@ -139,6 +139,16 @@ class Dynamixel(object):
         return None
     #
     #
+    def readGoalPosition(self):
+        res = self.send_command(INSTRUCTION['READ'], ADDRESS['GOAL_POSITION'], b'\x04\x00')
+        len_=self.parse(res)
+        if len_ == 8:
+            if res[7:9] == b'\x55\00':
+                pos=struct.unpack('<i', res[9:13])[0]
+                return pos
+        return None
+    #
+    #
     def setOperatingMode(self, mode):
         res = self.send_command(INSTRUCTION['WRITE'], ADDRESS['OPERATING_MODE'], struct.pack('B', mode))
         return self.parse(res) > 0
@@ -200,7 +210,7 @@ class PConrtol:
             print("Fail to initialize")
             return
         self.goalPosition = 0
-        self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])
+        self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])  # モード切り替え
         self.servo.setTorque(True)
         return
     #
@@ -238,14 +248,22 @@ class DynamixelDriver:
         self._pan = Dynamixel(1)
         self._tilt = Dynamixel(2)
         #print("get current_pos")
+        pan_present = self._pan.readPresentPosition()
+        pan_goal = self._pan.readGoalPosition()
+        tilt_present = self._tilt.readPresentPosition()
+        tilt_goal = self._tilt.readGoalPosition()
+        print(
+            "Boot Pos/Goal: pan=%s/%s tilt=%s/%s"
+            % (pan_present, pan_goal, tilt_present, tilt_goal)
+        )
         if pan_off is None:
-            pan_offset = self._pan.readPresentPosition()
+            pan_offset = pan_present
         else:
             pan_offset = pan_off
         
         if pan_offset:
             if tilt_off is None:
-                tilt_offset = self._tilt.readPresentPosition()
+                tilt_offset = tilt_present
             else:
                 tilt_offset = tilt_off
         else:
