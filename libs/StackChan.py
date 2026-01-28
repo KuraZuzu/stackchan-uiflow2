@@ -67,7 +67,6 @@ class StackChan:
     self.event_time=time.time()
     self.debug_time=time.time()
     self.debug = 0
-    self._tracking_log_time = time.ticks_ms()
   #
   # Create web server
   def init_web(self, n=80, start=False):
@@ -195,39 +194,25 @@ class StackChan:
     if not self.camera_setupted or not self.tracking_flag:
       #time.sleep_ms(50)
       return 
-    if not self.motor:
-      return
     face_pos_ = self.detect_face()
-    center_x = None
-    center_y = None
-    pos_ = [None, None, None, None]
-    dx = 0
-    dy = 0
-    if face_pos_:
-      pos_ = face_pos_[0]
-      center_x = pos_[0] + pos_[2] // 2
-      center_y = pos_[1] + pos_[3] // 2
+    if face_pos_ :
+      pos_ =face_pos_[0]
+      center_x = pos_[0]+pos_[2]//2
+      center_y = pos_[1]+pos_[3]//2
+      print("Face:", center_x, center_y, pos_[2], pos_[3])
       dx = center_x - 160
       dy = center_y - 120
-      print("Face:", center_x, center_y, pos_[2], pos_[3])
-      if pos_[3] > 60:
-        if abs(dx) > 10 or abs(dy) > 10:
-          cpos = self.motor.get_position()
-          dx_deg = cpos[0] + dx / 20.0
-          dy_deg = cpos[1] + dy / 20.0
-          #print(cpos, dx, dy, dx_deg, dy_deg)
-          self.motor.motor(True)
-          self.motor.move(dx_deg, dy_deg, True)
-    cpos = self.motor.get_position()
-    dx_deg = cpos[0] + dx / 20.0
-    dy_deg = cpos[1] + dy / 20.0
-    now = time.ticks_ms()
-    if time.ticks_diff(now, self._tracking_log_time) >= 200:
-      print(
-          f"[Face] x:{center_x}, y:{center_y}, w:{pos_[2]}, h:{pos_[3]} "
-          f"[Tar] cp:{cpos}, dx:{dx}, dy:{dy}, dxDeg:{dx_deg}, dyDeg:{dy_deg}"
-      )
-      self._tracking_log_time = now
+      cpos = self.motor.get_position()
+      print(f"dx: {dx}, dy: {dy}, cpos: {cpos}")
+      if abs(dx) > 10 or  abs(dy) > 10: 
+        dx_deg = cpos[0] + dx / 5.0
+        dy_deg = cpos[1] + dy / 5.0
+        #print(cpos, dx, dy, dx_deg, dy_deg)
+        print(f"Move to: {dx_deg}, {dy_deg}")
+        # self.motor.motor(True)
+        self.motor.move(dx_deg, dy_deg)
+      # if pos_[3] > 160:
+      #   self.start_dialog()
     return
   #
   #

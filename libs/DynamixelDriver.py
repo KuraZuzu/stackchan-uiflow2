@@ -80,6 +80,15 @@ class Dynamixel(object):
         self.id = id
     #
     #
+    def readOperatingMode(self):
+        res = self.send_command(INSTRUCTION['READ'], ADDRESS['OPERATING_MODE'], b'\x01\x00')
+        len_ = self.parse(res)
+        if len_ == 5:
+            if res[7:9] == b'\x55\00':
+                return res[9]
+        return None
+
+    
     def checksum(self, data):
         end = len(data)
         crc16 = 0
@@ -149,6 +158,25 @@ class Dynamixel(object):
         return None
     #
     #
+    def readGoalCurrent(self):
+        res = self.send_command(INSTRUCTION['READ'], ADDRESS['GOAL_CURRENT'], b'\x02\x00')
+        len_=self.parse(res)
+        if len_ == 6:
+            if res[7:9] == b'\x55\00':
+                cur=struct.unpack('<h', res[9:11])[0]
+                return cur
+        return None
+    #
+    #
+    def readOperatingMode(self):
+        res = self.send_command(INSTRUCTION['READ'], ADDRESS['OPERATING_MODE'], b'\x01\x00')
+        len_ = self.parse(res)
+        if len_ == 5:
+            if res[7:9] == b'\x55\00':
+                return res[9]
+        return None
+    #
+    #
     def setOperatingMode(self, mode):
         res = self.send_command(INSTRUCTION['WRITE'], ADDRESS['OPERATING_MODE'], struct.pack('B', mode))
         return self.parse(res) > 0
@@ -197,9 +225,27 @@ class PConrtol:
         self.init_pos = 0
         self.min_pos = min_pos
         self.max_pos = max_pos
+
+    def _dbg(self, tag):
+        pres = self.servo.readPresentPosition()
+        goal = self.servo.readGoalPosition()
+        diff = None if pres is None else (pres - self._offset)
+        print("[PCTL:%s] pres=%s goal=%s off=%s diff=%s" % (tag, pres, goal, self._offset, diff))
+
+    # --- Test-only raw writers to make PControl->Dynamixel writes explicit ---
+    def _write_goal_position_raw(self, pos):
+        res = self.servo.send_command(INSTRUCTION['WRITE'], ADDRESS['GOAL_POSITION'], struct.pack('<I', pos))
+        return self.servo.parse(res) > 0
+
+    def _write_goal_current_raw(self, val):
+        res = self.servo.send_command(INSTRUCTION['WRITE'], ADDRESS['GOAL_CURRENT'], struct.pack('<H', val))
+        return self.servo.parse(res) > 0
+
     #
     #
     def init(self):
+        self._dbg("init:entry")
+
         result = self.servo.readPresentPosition()
         if result is not None:
             while result - self._offset > 4096:
@@ -209,10 +255,70 @@ class PConrtol:
         else:
             print("Fail to initialize")
             return
+
+        self._dbg("init:after_offset")
+
         self.goalPosition = 0
-        # self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])  # モード切り替え（ここでGoalレジスタの値が書き換わる）
+
+        # --- ここから検証シーケンス ---
+        self.servo.setTorque(False)
+
+        def _dump(tag):
+            mode = self.servo.readOperatingMode()
+            pres = self.servo.readPresentPosition()
+            goal = self.servo.readGoalPosition()
+            gcur = self.servo.readGoalCurrent()
+            diff = None if pres is None else (pres - self._offset)
+            print("[MODETEST:%s] mode=%s goal=%s pres=%s gcur=%s off=%s diff=%s"
+                  % (tag, mode, goal, pres, gcur, self._offset, diff))
+
+        def _set_goal(tag, val, cur=0):
+            # 一時的にトルクON + 電流上限0でGoalを書き込み、すぐトルクOFF
+            self.servo.setTorque(True)
+            ok_cur = self._write_goal_current_raw(cur)
+            ok_goal = self._write_goal_position_raw(val)
+            time.sleep_ms(20)  # 反映待ち
+            _dump(tag + ":set_ok=%s/%s" % (ok_cur, ok_goal))
+            self.servo.setTorque(False)
+
+        _dump("start")
+
+        _set_goal("g_test1", 1234)
+        _set_goal("g_test2", 2345)
+
+        # 1-2) CURRENT_BASED_POSITION x2
+        _set_goal("g_cur1", 1234)
+        self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])
+        _dump("cur1")
+        _set_goal("g_cur2", 2345)
+        self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])
+        _dump("cur2")
+
+        # 3-4) POSITION x2
+        _set_goal("g_pos1", 3456)
+        self.servo.setOperatingMode(OPERATING_MODE['POSITION'])
+        _dump("pos1")
+        _set_goal("g_pos2", 456)
+        self.servo.setOperatingMode(OPERATING_MODE['POSITION'])
+        _dump("pos2")
+
+        # 5-6) CURRENT_BASED_POSITION x2
+        _set_goal("g_cur3", 1500)
+        self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])
+        _dump("cur3")
+        _set_goal("g_cur4", 2500)
+        self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])
+        _dump("cur4")
+
+
+        # 最終状態をCURRENT_BASED_POSITIONへ戻してTorque ON
+        self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])
         self.servo.setTorque(True)
+        self._dbg("init:after_torque")
+
         return
+
+
     #
     #
     def update(self):
@@ -283,6 +389,15 @@ class DynamixelDriver:
         self._initialzed = False
         self.rand_motion = False
         self.start_time=time.time()
+
+    def readOperatingMode(self):
+        res = self.send_command(INSTRUCTION['READ'], ADDRESS['OPERATING_MODE'], b'\x01\x00')
+        len_ = self.parse(res)
+        if len_ == 5:
+            if res[7:9] == b'\x55\00':
+                return res[9]
+        return None
+
     #
     #
     def setTorque(self, flag):
