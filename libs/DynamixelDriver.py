@@ -281,37 +281,54 @@ class PConrtol:
             _dump(tag + ":set_ok=%s/%s" % (ok_cur, ok_goal))
             self.servo.setTorque(False)
 
+        print("start")
         _dump("start")
 
+        print("1234書き込みテスト")
         _set_goal("g_test1", 1234)
+        print("2345書き込みテスト")
         _set_goal("g_test2", 2345)
 
         # 1-2) CURRENT_BASED_POSITION x2
+        print("書き込み: 1234")
         _set_goal("g_cur1", 1234)
+        print("モード切り替え CURRENT_BASE")
         self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])
         _dump("cur1")
+
+        print("書き込み: 2345")
         _set_goal("g_cur2", 2345)
+        print("モード切り替え: CURRENT_BASE")
         self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])
         _dump("cur2")
 
         # 3-4) POSITION x2
+        print("書き込み: 3456")
         _set_goal("g_pos1", 3456)
+        print("モード切り替え: POSITION")
         self.servo.setOperatingMode(OPERATING_MODE['POSITION'])
         _dump("pos1")
+        print("書き込み: 456")
         _set_goal("g_pos2", 456)
+        print("モード切り替え: POSITION")
         self.servo.setOperatingMode(OPERATING_MODE['POSITION'])
         _dump("pos2")
 
         # 5-6) CURRENT_BASED_POSITION x2
+        print("書き込み: 1500")
         _set_goal("g_cur3", 1500)
+        print("モード切り替え: CURRENT_BASE")
         self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])
         _dump("cur3")
+        print("書き込み: 2500")
         _set_goal("g_cur4", 2500)
+        print("モード切り替え: CURRENT_BASE")
         self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])
         _dump("cur4")
 
 
         # 最終状態をCURRENT_BASED_POSITIONへ戻してTorque ON
+        print("モード切り替え: CURRENT_BASE")
         self.servo.setOperatingMode(OPERATING_MODE['CURRENT_BASED_POSITION'])
         self.servo.setTorque(True)
         self._dbg("init:after_torque")
